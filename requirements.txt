@@ -1,0 +1,7 @@
+# Pinned for deterministic results. Upgrading pyswisseph or tzdata can legitimately change
+# outputs (new ephemeris model / new historical tz research) - re-run tests/ after upgrading.
+pyswisseph==2.10.3.2
+tzdata==2026.4
+timezonefinder==9.0.0
+fastapi==0.142.2
+pydantic==2.13.5

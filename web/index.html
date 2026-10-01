@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Natal Chart Calculator — Swiss Ephemeris</title>
+<meta name="description" content="Deterministic natal chart calculator: planets, Chiron, nodes, Lilith, angles, Vertex, Part of Fortune, houses and aspects, computed with the Swiss Ephemeris and IANA historical time zones.">
+<style>
+:root{
+  --paper:#f6f2ea; --card:#fffdf8; --ink:#1d1b18; --muted:#6b645a; --line:#ddd4c4; --line2:#ebe4d7;
+  --accent:#7a1f2b; --accent-soft:#f3e3e1; --ok:#2f6b4f; --warn:#8a5a00; --warn-soft:#fbf1dc; --err:#9b1c1c; --err-soft:#fbe7e7;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--sans)}
+a{color:var(--accent)}
+header.top{border-bottom:1px solid var(--line);background:var(--card)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+header.top .wrap{display:flex;align-items:baseline;gap:16px;padding-top:18px;padding-bottom:14px;flex-wrap:wrap}
+h1{font:600 26px/1.1 var(--serif);margin:0;letter-spacing:.2px}
+.tag{color:var(--muted);font-size:13px}
+main .wrap{display:grid;grid-template-columns:360px 1fr;gap:24px;padding-top:24px;padding-bottom:60px}
+@media (max-width:920px){main .wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+form .card{position:sticky;top:16px}
+h2{font:600 18px/1.2 var(--serif);margin:0 0 12px}
+h3{font:600 15px/1.2 var(--serif);margin:18px 0 8px}
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 4px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.row3 input{padding:7px 6px;text-align:center}
+.check{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500}
+.check input{width:auto}
+details{border-top:1px solid var(--line2);margin-top:14px;padding-top:10px}
+summary{cursor:pointer;font-weight:600;font-size:14px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#fff;padding:8px 12px;color:var(--ink)}
+button.primary{width:100%;margin-top:18px;background:var(--accent);color:#fff;border-color:var(--accent);padding:11px;font-weight:600}
+button.primary:disabled{opacity:.6;cursor:wait}
+button.small{padding:5px 10px;font-size:13px}
+.place-box{position:relative}
+.suggest{position:absolute;z-index:10;left:0;right:0;top:100%;background:#fff;border:1px solid var(--line);border-radius:8px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-height:280px;overflow:auto;display:none}
+.suggest div{padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--line2);font-size:14px}
+.suggest div:hover,.suggest div.active{background:var(--accent-soft)}
+.suggest small{color:var(--muted);display:block;font-family:var(--mono);font-size:11px}
+.chosen{font-size:12px;font-family:var(--mono);color:var(--muted);margin-top:6px}
+.results{display:flex;flex-direction:column;gap:18px;min-width:0}
+.empty{color:var(--muted);text-align:center;padding:70px 20px}
+.empty .big{font:500 22px/1.3 var(--serif);color:var(--ink);margin-bottom:8px}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px 18px;font-size:13px}
+.meta b{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.meta span{font-family:var(--mono)}
+.chart-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.wheel{display:flex;justify-content:center}
+.wheel svg{width:100%;max-width:560px;height:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:6px 8px}
+td{padding:6px 8px;border-bottom:1px solid var(--line2);vertical-align:top}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.sep td{border-top:1px solid var(--line)}
+.glyph{font-size:17px;width:22px;display:inline-block;text-align:center;color:var(--accent)}
+.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);font-family:var(--mono)}
+.pill.r{color:var(--err);border-color:#e7b9b9;background:var(--err-soft)}
+.pill.s{color:var(--warn);border-color:#ecd39e;background:var(--warn-soft)}
+.pill.a{color:var(--ok);border-color:#b9d8c8;background:#e8f3ec}
+.scroll{overflow-x:auto}
+.head-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.head-actions h2{margin:0}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
+.notice{border-radius:var(--r);padding:12px 14px;font-size:14px}
+.notice.warn{background:var(--warn-soft);border:1px solid #ecd39e}
+.notice.err{background:var(--err-soft);border:1px solid #e7b9b9}
+.notice code{font-family:var(--mono);font-size:12px}
+.notice ul{margin:6px 0 0 18px;padding:0}
+.choice{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+pre.copy{white-space:pre-wrap;font:12.5px/1.55 var(--mono);background:#fbf8f2;border:1px solid var(--line2);border-radius:8px;padding:12px;max-height:340px;overflow:auto;margin:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:1100px){.two{grid-template-columns:1fr}}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:12px;padding:18px 0 30px}
+footer .wrap{display:flex;gap:18px;flex-wrap:wrap}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <h1>Natal Chart Calculator</h1>
+  <span class="tag">Swiss Ephemeris · IANA historical time zones · GeoNames · no estimated positions</span>
+</div></header>
+
+<main><div class="wrap">
+<form id="f" autocomplete="off" novalidate>
+ <div class="card">
+  <h2>Birth data</h2>
+  <div class="row">
+    <div><label for="date">Date</label><input id="date" type="date" required min="1200-01-01" max="2999-12-31" value="1987-07-07"></div>
+    <div><label for="time">Local time</label><input id="time" type="time" step="1" value="00:30"></div>
+  </div>
+  <label class="check"><input type="checkbox" id="unknown"> Birth time unknown</label>
+  <div class="place-box">
+    <label for="place">Birthplace</label>
+    <input id="place" placeholder="City, Country" value="Cairo, Egypt" aria-autocomplete="list">
+    <div class="suggest" id="suggest" role="listbox"></div>
+  </div>
+  <div class="chosen" id="chosen"></div>
+
+  <details id="ovr">
+   <summary>Manual overrides</summary>
+   <div class="row">
+     <div><label for="lat">Latitude</label><input id="lat" placeholder="30°04′N or 30.0667"></div>
+     <div><label for="lon">Longitude</label><input id="lon" placeholder="31°15′E or 31.25"></div>
+   </div>
+   <div class="row">
+     <div><label for="tz">IANA timezone</label><input id="tz" placeholder="Africa/Cairo"></div>
+     <div><label for="off">Fixed UTC offset</label><input id="off" placeholder="+03:00"></div>
+   </div>
+   <div class="hint">Coordinates override the searched place; a fixed UTC offset bypasses all timezone/DST rules.</div>
+   <div class="row">
+     <div><label for="amb">Repeated local time</label><select id="amb"><option value="reject">Ask me</option><option value="earlier">Earlier (1st)</option><option value="later">Later (2nd)</option></select></div>
+     <div><label for="gap">Skipped local time</label><select id="gap"><option value="reject">Ask me</option><option value="shift_forward">Pre-change offset</option><option value="shift_backward">Post-change offset</option></select></div>
+   </div>
+   <div class="row">
+     <div><label for="lmt">Before standard time</label><select id="lmt"><option value="birthplace">Birthplace LMT</option><option value="zone">Zone city LMT</option></select></div>
+     <div><label for="cal">Calendar</label><select id="cal"><option value="gregorian">Gregorian</option><option value="julian">Julian (Old Style)</option></select></div>
+   </div>
+  </details>
+
+  <details id="set">
+   <summary>Chart settings</summary>
+   <div class="row">
+     <div><label for="zod">Zodiac</label><select id="zod"><option value="tropical">Tropical</option><option value="sidereal">Sidereal</option></select></div>
+     <div id="ayanBox" style="display:none"><label for="ayan">Ayanamsa</label><select id="ayan"></select></div>
+   </div>
+   <div class="row">
+     <div><label for="hs">House system</label><select id="hs"></select></div>
+     <div><label for="pf">Polar fallback</label><select id="pf"><option value="none">None (report error)</option><option value="porphyry">Porphyry</option><option value="whole_sign">Whole Sign</option><option value="equal">Equal</option></select></div>
+   </div>
+   <div class="row">
+     <div><label for="node">Lunar node</label><select id="node"><option value="true">True node</option><option value="mean">Mean node</option></select></div>
+     <div><label for="lil">Lilith</label><select id="lil"><option value="mean">Mean</option><option value="osculating">Osculating (true)</option><option value="interpolated">Interpolated</option></select></div>
+   </div>
+   <label for="fort">Part of Fortune</label>
+   <select id="fort"><option value="sect">Day/night (sect) formula</option><option value="day">Always day formula</option></select>
+   <label>Orbs (°) — ☌ ☍ □ △ ⚹</label>
+   <div class="row3">
+     <input id="o_conjunction" type="number" min="0" max="30" step="0.5" value="8" title="Conjunction">
+     <input id="o_opposition" type="number" min="0" max="30" step="0.5" value="8" title="Opposition">
+     <input id="o_square" type="number" min="0" max="30" step="0.5" value="7" title="Square">
+     <input id="o_trine" type="number" min="0" max="30" step="0.5" value="7" title="Trine">
+     <input id="o_sextile" type="number" min="0" max="30" step="0.5" value="5" title="Sextile">
+   </div>
+  </details>
+
+  <button class="primary" id="go" type="submit">Calculate chart</button>
+ </div>
+</form>
+
+<section class="results" id="out">
+  <div class="card empty"><div class="big">Enter birth data to calculate a chart.</div>
+  The example is the reference test case: 7 July 1987, 00:30, Cairo (30°04′N, 31°15′E).</div>
+</section>
+</div></main>
+
+<footer><div class="wrap">
+  <span>Positions: <a href="https://www.astro.com/swisseph/" rel="noopener">Swiss Ephemeris</a> © Astrodienst AG, used under AGPL-3.0.</span>
+  <span>Places: <a href="https://www.geonames.org/" rel="noopener">GeoNames</a> (CC BY 4.0).</span>
+  <span>Time zones: <a href="https://www.iana.org/time-zones" rel="noopener">IANA tz database</a>.</span>
+  <span><a href="https://github.com/adamgrgs/Astro-chart" rel="noopener">Source code (AGPL-3.0)</a> · <a href="/docs">API</a></span>
+</div></footer>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const GLYPH = {sun:"☉",moon:"☽",mercury:"☿",venus:"♀",mars:"♂",jupiter:"♃",saturn:"♄",uranus:"♅",neptune:"♆",pluto:"♇",
+  chiron:"⚷",north_node:"☊",south_node:"☋",lilith:"⚸",asc:"AC",mc:"MC",dsc:"DC",ic:"IC",vertex:"Vx",fortune:"⊗"};
+const SIGNG = ["♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓"].map(g=>g+"\uFE0E");
+const ASPG = {conjunction:"☌",opposition:"☍",square:"□",trine:"△",sextile:"⚹"};
+const ASPC = {conjunction:"#6b645a",opposition:"#9b1c1c",square:"#c2410c",trine:"#2f6b4f",sextile:"#2563eb"};
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let selected = null, last = null, lastReq = null;
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1600); }
+async function copy(text){ try{ await navigator.clipboard.writeText(text); toast("Copied"); }catch{ toast("Copy failed — select the text manually"); } }
+
+// ---------- options from /api/meta
+fetch("/api/meta").then(r=>r.json()).then(m=>{
+  const hs=$("#hs"); for(const [k,v] of Object.entries(m.options.house_systems)){ hs.add(new Option(v,k)); } hs.value="placidus";
+  const ay=$("#ayan"); for(const k of m.options.ayanamsas){ ay.add(new Option(k.replace(/_/g," "),k)); } ay.value="lahiri";
+});
+$("#zod").onchange = e => $("#ayanBox").style.display = e.target.value==="sidereal" ? "" : "none";
+$("#unknown").onchange = e => { $("#time").disabled = e.target.checked; };
+
+// ---------- place autocomplete
+let timer=null, items=[], active=-1;
+$("#place").addEventListener("input", e => {
+  selected=null; $("#chosen").textContent="";
+  clearTimeout(timer); const q=e.target.value.trim();
+  if(q.length<2){ $("#suggest").style.display="none"; return; }
+  timer=setTimeout(async()=>{
+    const r=await fetch("/api/places?q="+encodeURIComponent(q)); const d=await r.json();
+    items=d.results||[]; active=-1; renderSuggest();
+  },220);
+});
+$("#place").addEventListener("keydown", e => {
+  const box=$("#suggest"); if(box.style.display!=="block") return;
+  if(e.key==="ArrowDown"){ active=Math.min(items.length-1,active+1); renderSuggest(); e.preventDefault(); }
+  if(e.key==="ArrowUp"){ active=Math.max(0,active-1); renderSuggest(); e.preventDefault(); }
+  if(e.key==="Enter" && active>=0){ choose(items[active]); e.preventDefault(); }
+  if(e.key==="Escape"){ box.style.display="none"; }
+});
+document.addEventListener("click", e => { if(!e.target.closest(".place-box")) $("#suggest").style.display="none"; });
+function renderSuggest(){
+  const box=$("#suggest");
+  if(!items.length){ box.innerHTML='<div style="cursor:default;color:#6b645a">No match — use manual coordinates below</div>'; box.style.display="block"; return; }
+  box.innerHTML=items.map((p,i)=>`<div role="option" data-i="${i}" class="${i===active?"active":""}">${esc(p.label)}<small>${p.lat.toFixed(4)}, ${p.lon.toFixed(4)} · ${esc(p.timezone)}</small></div>`).join("");
+  box.querySelectorAll("[data-i]").forEach(el=>el.onclick=()=>choose(items[+el.dataset.i]));
+  box.style.display="block";
+}
+function choose(p){
+  selected=p; $("#place").value=p.label; $("#suggest").style.display="none";
+  $("#chosen").textContent=`GeoNames ${p.geonameid} · ${p.lat.toFixed(4)}, ${p.lon.toFixed(4)} · ${p.timezone}`;
+}
+
+// ---------- submit
+function buildReq(){
+  const v = id => $(id).value.trim();
+  const req = { date: v("#date"), calendar: v("#cal"), ambiguous_time: v("#amb"), nonexistent_time: v("#gap"), lmt: v("#lmt") };
+  if($("#unknown").checked) req.time_unknown = true; else req.time = v("#time");
+  if(selected) { req.geonameid = selected.geonameid; req.place_label = selected.label; } else if(v("#place")) req.place = v("#place");
+  if(v("#lat") || v("#lon")) { req.latitude = v("#lat"); req.longitude = v("#lon"); }
+  if(v("#tz")) req.timezone = v("#tz");
+  if(v("#off")) req.utc_offset = v("#off");
+  const s = { zodiac: v("#zod"), house_system: v("#hs") || "placidus", polar_fallback: v("#pf"), node: v("#node"), lilith: v("#lil"), fortune: v("#fort"), orbs:{} };
+  if(s.zodiac==="sidereal") s.ayanamsa = v("#ayan");
+  for(const k of ["conjunction","opposition","square","trine","sextile"]) s.orbs[k] = parseFloat($("#o_"+k).value||"0");
+  req.settings = s; return req;
+}
+$("#f").addEventListener("submit", e => { e.preventDefault(); run(buildReq()); });
+
+async function run(req){
+  lastReq = req; const btn=$("#go"); btn.disabled=true; btn.textContent="Calculating…";
+  try{
+    const r = await fetch("/api/chart",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(req)});
+    const d = await r.json();
+    if(!r.ok) return renderError(d, req);
+    last = d; render(d);
+  }catch(err){ renderError({error:{code:"NETWORK",message:String(err)}}, req); }
+  finally{ btn.disabled=false; btn.textContent="Calculate chart"; }
+}
+
+function renderError(d, req){
+  const e = d.error || {code:"VALIDATION", message: (d.detail||[]).map(x=>`${(x.loc||[]).join(".")}: ${x.msg}`).join("; ") || "Invalid request"};
+  let extra = "";
+  const opts = e.details && e.details.options;
+  if(e.code==="AMBIGUOUS_LOCAL_TIME" && opts){
+    extra = `<div class="choice">${Object.entries(opts).map(([k,o])=>`<button class="small" data-k="ambiguous_time" data-v="${k}">${k==="earlier"?"First":"Second"} occurrence · UTC${esc(o.utc_offset)} ${esc(o.abbreviation||"")} → ${esc(o.utc)}</button>`).join("")}</div>`;
+  } else if(e.code==="NONEXISTENT_LOCAL_TIME" && opts){
+    extra = `<div class="choice">${Object.entries(opts).map(([k,o])=>`<button class="small" data-k="nonexistent_time" data-v="${k}">${k==="shift_forward"?"Read with pre-change offset":"Read with post-change offset"} · UTC${esc(o.utc_offset)} → ${esc(o.utc)}</button>`).join("")}</div>`;
+  } else if(e.code==="HOUSE_SYSTEM_FAILED" && e.details.fallback_options){
+    extra = `<div class="choice">${e.details.fallback_options.map(k=>`<button class="small" data-k="polar_fallback" data-v="${k}">Use ${k.replace("_"," ")} houses</button>`).join("")}</div>`;
+  }
+  $("#out").innerHTML = `<div class="notice err"><b>${esc(e.code)}</b> — ${esc(e.message)}${extra}</div>`;
+  $("#out").querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{
+    const r2 = JSON.parse(JSON.stringify(req));
+    if(b.dataset.k==="polar_fallback"){ r2.settings.polar_fallback=b.dataset.v; $("#pf").value=b.dataset.v; }
+    else { r2[b.dataset.k]=b.dataset.v; $(b.dataset.k==="ambiguous_time"?"#amb":"#gap").value=b.dataset.v; }
+    run(r2);
+  });
+}
+
+function motionPill(p){
+  const m=p.motion; if(!m) return "";
+  if(m.stationary) return `<span class="pill s" title="|speed| < ${m.stationary_threshold_deg_per_day}°/day">S${m.retrograde?"R":"D"}</span>`;
+  return m.retrograde ? '<span class="pill r">R</span>' : '<span class="pill">D</span>';
+}
+function render(d){
+  const t=d.time, L=d.location, known=d.time_known;
+  const unc = d.uncertainty;
+  const warn = d.warnings.length ? `<div class="notice warn"><b>Notes</b><ul>${d.warnings.map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>` : "";
+  const uncBox = unc ? `<div class="notice warn"><b>Birth time unknown.</b> ${esc(unc.note)}<br>Uncertain placements: <b>${unc.uncertain_points.map(p=>esc(d.points.find(x=>x.id===p)?.label||p)).join(", ")}</b>.</div>` : "";
+  const pts = d.points.map(p=>{
+    const u = unc && unc.points[p.id];
+    const pos = u && (u.sign_changes || p.id==="moon") ? `${esc(p.dms)}<div class="hint">day range ${esc(u.range_formatted)}</div>` : esc(p.dms);
+    return `<tr${p.id==="asc"?' class="sep"':""}><td><span class="glyph">${GLYPH[p.id]||""}</span>${esc(p.label)}${p.variant?` <span class="hint">(${esc(p.variant)})</span>`:""}</td>
+      <td>${SIGNG[p.sign_index]} ${esc(p.sign)}</td><td class="num">${pos}</td>
+      ${known?`<td class="num">${p.house??""}</td>`:""}<td>${motionPill(p)}</td>
+      <td class="num">${p.speed_deg_per_day==null?"":p.speed_deg_per_day.toFixed(4)}</td>
+      <td class="num">${p.declination==null?"":p.declination.toFixed(2)+"°"}</td></tr>`;}).join("");
+  const asp = d.aspects.map(a=>`<tr><td><span class="glyph">${GLYPH[a.a]}</span>${esc(a.a_label)}</td>
+      <td><span style="color:${ASPC[a.type]}">${ASPG[a.type]}</span> ${esc(a.label)}</td>
+      <td><span class="glyph">${GLYPH[a.b]}</span>${esc(a.b_label)}</td>
+      <td class="num">${esc(a.orb_formatted)}${a.orb_range_formatted?`<div class="hint">day ${esc(a.orb_range_formatted)}</div>`:""}</td>
+      <td>${a.status?`<span class="pill ${a.status==="applying"?"a":""}">${esc(a.status)}</span>`:""}${a.occurs==="part_of_day"?' <span class="pill s">time-dependent</span>':""}</td></tr>`).join("");
+  const houses = d.houses ? `<div class="card"><div class="head-actions"><h2>House cusps · ${esc(d.houses.system_label)}</h2><div class="btns"><button class="small" data-copy="houses">Copy</button></div></div>
+     <div class="scroll"><table><tr><th>House</th><th>Sign</th><th>Cusp</th></tr>${d.houses.cusps.map(c=>`<tr><td>${c.house}</td><td>${SIGNG[c.sign_index]} ${esc(c.sign)}</td><td class="num">${esc(c.dms)}</td></tr>`).join("")}</table></div>
+     <div class="hint">Sect: ${esc(d.houses.sect)} chart (Sun altitude ${d.houses.sun_altitude_deg.toFixed(2)}°). ARMC ${d.houses.armc.toFixed(4)}°.</div></div>` : "";
+  const v = d.variants;
+  const variants = `<div class="card"><h2>Variants</h2><table>
+     <tr><th>Point</th><th>Variant</th><th>Position</th></tr>
+     ${Object.entries(v.north_node).map(([k,x])=>`<tr><td>North Node</td><td>${esc(k)}${k===d.settings.node?" ✓":""}</td><td class="num">${esc(x.formatted)}</td></tr>`).join("")}
+     ${Object.entries(v.lilith).map(([k,x])=>`<tr><td>Lilith</td><td>${esc(k)}${k===d.settings.lilith?" ✓":""}</td><td class="num">${esc(x.formatted)}</td></tr>`).join("")}
+     </table>${d.ayanamsa?`<div class="hint">Ayanamsa ${esc(d.ayanamsa.name)}: ${esc(d.ayanamsa.formatted)} (${esc(d.ayanamsa.note)})</div>`:""}</div>`;
+  $("#out").innerHTML = `
+   ${uncBox}${warn}
+   <div class="card"><div class="head-actions"><h2>${esc(L.name || "Manual location")}</h2>
+     <div class="btns"><button class="small" data-copy="full_text">Copy full summary</button><button class="small" id="dl">Download JSON</button></div></div>
+     <div class="meta">
+      <div><b>Local</b><span>${esc(d.input.date)} ${known?esc(d.input.time):"time unknown (noon used)"}</span></div>
+      <div><b>UTC</b><span>${esc(t.utc)}</span></div>
+      <div><b>Offset</b><span>${esc(t.utc_offset)} ${esc(t.abbreviation||"")}${t.dst?" (DST)":""}</span></div>
+      <div><b>Zone</b><span>${esc(t.timezone||"manual")} · ${esc(t.source)}${t.tzdata_version?" · tzdb "+esc(t.tzdata_version):""}</span></div>
+      <div><b>Coordinates</b><span>${esc(L.latitude_formatted||"—")} ${esc(L.longitude_formatted||"")}</span></div>
+      <div><b>Settings</b><span>${esc(d.settings.zodiac)}${d.ayanamsa?" / "+esc(d.settings.ayanamsa):""} · ${esc(d.houses?d.houses.system_label:"no houses")}</span></div>
+      <div><b>ΔT</b><span>${d.delta_t_seconds.toFixed(2)} s · JD ${t.julian_day_ut}</span></div>
+      <div><b>Engine</b><span>Swiss Eph ${esc(d.engine.swisseph_version)} · ${d.engine.ephemeris_files_used.map(f=>esc(f.file)).join(", ")}</span></div>
+     </div></div>
+   <div class="card wheel">${wheel(d)}</div>
+   <div class="card"><div class="head-actions"><h2>Placements</h2><div class="btns"><button class="small" data-copy="placements">Copy</button></div></div>
+     <div class="scroll"><table><tr><th>Point</th><th>Sign</th><th>Position</th>${known?"<th>House</th>":""}<th>Motion</th><th>°/day</th><th>Decl.</th></tr>${pts}</table></div>
+     <div class="hint">Degrees and minutes are truncated, not rounded. R = retrograde, D = direct, SR/SD = stationary (|speed| below the body's threshold, see API docs).</div></div>
+   <div class="card"><div class="head-actions"><h2>Aspects (${d.aspects.length})</h2><div class="btns"><button class="small" data-copy="aspects">Copy</button></div></div>
+     <div class="scroll"><table><tr><th>Point</th><th>Aspect</th><th>Point</th><th>Orb</th><th>Status</th></tr>${asp||'<tr><td colspan="5">No aspects within the configured orbs.</td></tr>'}</table></div></div>
+   <div class="two">${houses}${variants}</div>
+   <div class="card"><div class="head-actions"><h2>Copyable summary</h2><div class="btns"><button class="small" data-copy="full_text">Copy</button></div></div><pre class="copy">${esc(d.summaries.full_text)}</pre></div>`;
+  $("#out").querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copy(d.summaries[b.dataset.copy]));
+  $("#dl").onclick=()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:"application/json"})); a.download=`chart-${d.input.date}.json`; a.click(); };
+}
+
+// ---------- wheel (SVG). ASC on the left, longitude increasing counter-clockwise.
+function wheel(d){
+  const S=560, c=S/2, R1=268, R2=232, R3=196, R4=120;
+  const asc = d.points.find(p=>p.id==="asc");
+  const base = asc ? asc.longitude : 0;
+  const ang = lon => (180 + (lon - base)) * Math.PI/180;
+  const xy = (lon,r) => [c + r*Math.cos(ang(lon)), c - r*Math.sin(ang(lon))];
+  let s = `<svg viewBox="0 0 ${S} ${S}" xmlns="http://www.w3.org/2000/svg" font-family="var(--sans)" role="img" aria-label="Chart wheel">`;
+  s += `<circle cx="${c}" cy="${c}" r="${R1}" fill="#fffdf8" stroke="#1d1b18"/><circle cx="${c}" cy="${c}" r="${R2}" fill="#fbf8f2" stroke="#1d1b18"/><circle cx="${c}" cy="${c}" r="${R4}" fill="#fffdf8" stroke="#ddd4c4"/>`;
+  for(let i=0;i<12;i++){
+    const [x1,y1]=xy(i*30,R2),[x2,y2]=xy(i*30,R1); s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#1d1b18"/>`;
+    const [gx,gy]=xy(i*30+15,(R1+R2)/2); s+=`<text x="${gx}" y="${gy}" font-size="19" text-anchor="middle" dominant-baseline="central" fill="#7a1f2b">${SIGNG[i]}</text>`;
+    for(let k=1;k<30;k++){ const len = k%10===0?8:(k%5===0?5:2.5); const [a1,b1]=xy(i*30+k,R2),[a2,b2]=xy(i*30+k,R2+len); s+=`<line x1="${a1}" y1="${b1}" x2="${a2}" y2="${b2}" stroke="#6b645a" stroke-width=".6"/>`; }
+  }
+  if(d.houses){
+    d.houses.cusps.forEach(h=>{
+      const ax = h.house===1||h.house===10||h.house===4||h.house===7;
+      const [x1,y1]=xy(h.longitude,R4),[x2,y2]=xy(h.longitude,R2);
+      s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${ax?"#1d1b18":"#bdb3a2"}" stroke-width="${ax?1.6:.8}"/>`;
+      const next = d.houses.cusps[h.house%12].longitude; const mid = h.longitude + (((next-h.longitude)%360+360)%360)/2;
+      const [nx,ny]=xy(mid,R4+12); s+=`<text x="${nx}" y="${ny}" font-size="10" text-anchor="middle" dominant-baseline="central" fill="#6b645a">${h.house}</text>`;
+    });
+  }
+  // aspects
+  const pos = Object.fromEntries(d.points.map(p=>[p.id,p.longitude]));
+  d.aspects.forEach(a=>{ if(a.type==="conjunction") return; const [x1,y1]=xy(pos[a.a],R4),[x2,y2]=xy(pos[a.b],R4);
+    s+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${ASPC[a.type]}" stroke-width="${a.orb<2?1.4:.8}" opacity=".75"/>`; });
+  // planets with simple collision spreading
+  const body = d.points.filter(p=>!["dsc","ic","south_node"].includes(p.id)).map(p=>({...p,disp:p.longitude})).sort((a,b)=>a.longitude-b.longitude);
+  for(let pass=0;pass<6;pass++) for(let i=0;i<body.length;i++){ const a=body[i], b=body[(i+1)%body.length]; let gap=((b.disp-a.disp)%360+360)%360; if(gap<7 && body.length>1){ const push=(7-gap)/2; a.disp-=push; b.disp+=push; } }
+  body.forEach(p=>{
+    const [tx,ty]=xy(p.longitude,R2),[t2x,t2y]=xy(p.longitude,R2-6); s+=`<line x1="${tx}" y1="${ty}" x2="${t2x}" y2="${t2y}" stroke="#1d1b18"/>`;
+    const [gx,gy]=xy(p.disp,R3-8); const small = GLYPH[p.id].length>1;
+    s+=`<text x="${gx}" y="${gy}" font-size="${small?11:18}" font-weight="${small?700:400}" text-anchor="middle" dominant-baseline="central" fill="${p.motion&&p.motion.retrograde?"#9b1c1c":"#1d1b18"}">${GLYPH[p.id]}</text>`;
+    const [dx,dy]=xy(p.disp,R3-30); s+=`<text x="${dx}" y="${dy}" font-size="9" text-anchor="middle" dominant-baseline="central" fill="#6b645a">${p.deg}°${String(p.min).padStart(2,"0")}</text>`;
+  });
+  if(!d.houses) s+=`<text x="${c}" y="${c}" font-size="12" text-anchor="middle" fill="#6b645a">No houses (time unknown)</text>`;
+  return s + "</svg>";
+}
+</script>
+</body>
+</html>

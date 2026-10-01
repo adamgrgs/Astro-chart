@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "{astrocalc,ephe,data,web}/**",
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}
