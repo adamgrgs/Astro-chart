@@ -85,6 +85,16 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:12px;paddin
 footer .wrap{display:flex;gap:18px;flex-wrap:wrap}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
+.reading p{margin:0 0 10px}.reading h3{margin:16px 0 6px}
+.cta{background:linear-gradient(135deg,var(--accent-soft),#fffdf8);border:1px solid var(--accent)}
+.cta .big{font:600 20px/1.25 var(--serif);margin-bottom:6px}
+.cta .row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px}
+.cta label{font-size:12px;color:var(--muted)} .cta input{width:80px}
+.src{font-size:12px;color:var(--muted);margin-top:8px}
+.signs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:8px 0}
+.signs > div{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}
+.signs b{font-family:var(--serif);font-size:16px}
+.bar{height:6px;background:var(--line2);border-radius:3px;margin-top:6px}.bar i{display:block;height:6px;background:var(--accent);border-radius:3px}
 </style>
 </head>
 <body>
@@ -320,6 +330,13 @@ function render(d){
       <div><b>Engine</b><span>Swiss Eph ${esc(d.engine.swisseph_version)} · ${d.engine.ephemeris_files_used.map(f=>esc(f.file)).join(", ")}</span></div>
      </div></div>
    <div class="card wheel">${wheel(d)}</div>
+   <div class="card reading" id="reading"><div class="head-actions"><h2>What your chart says</h2><div class="btns"><button class="small" id="copyReading" disabled>Copy</button></div></div><div id="readingBody" class="hint">Writing your interpretation…</div></div>
+   <div class="card cta" id="matchCard"><div class="big">💞 Who's your ideal match?</div>
+     <div>See the birth dates and horoscopes (Sun signs) that fit your chart best, explained in plain English.</div>
+     <div class="row"><div><label for="yb">Years older</label><input id="yb" type="number" min="0" max="40" value="10"></div>
+       <div><label for="ya">Years younger</label><input id="ya" type="number" min="0" max="40" value="10"></div>
+       <button class="primary" id="matchGo" type="button">Find my best matches →</button></div>
+     <div id="matchBody"></div></div>
    <div class="card"><div class="head-actions"><h2>Placements</h2><div class="btns"><button class="small" data-copy="placements">Copy</button></div></div>
      <div class="scroll"><table><tr><th>Point</th><th>Sign</th><th>Position</th>${known?"<th>House</th>":""}<th>Motion</th><th>°/day</th><th>Decl.</th></tr>${pts}</table></div>
      <div class="hint">Degrees and minutes are truncated, not rounded. R = retrograde, D = direct, SR/SD = stationary (|speed| below the body's threshold, see API docs).</div></div>
@@ -328,9 +345,50 @@ function render(d){
    <div class="two">${houses}${variants}</div>
    <div class="card"><div class="head-actions"><h2>Copyable summary</h2><div class="btns"><button class="small" data-copy="full_text">Copy</button></div></div><pre class="copy">${esc(d.summaries.full_text)}</pre></div>`;
   $("#out").querySelectorAll("[data-copy]").forEach(b=>b.onclick=()=>copy(d.summaries[b.dataset.copy]));
+  loadReading(lastReq); $("#matchGo").onclick=()=>loadMatch(lastReq);
   $("#dl").onclick=()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:"application/json"})); a.download=`chart-${d.input.date}.json`; a.click(); };
 }
 
+
+// ---------- interpretation + ideal match (text is written server-side from the calculated chart)
+const md = t => esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").split(/\n+/).map(x=>`<p>${x}</p>`).join("");
+const srcLine = r => r.source==="ai" ? `Written by AI (${esc(r.model||"")}) from the calculated chart; every sign and house it mentions was checked against the calculation.`
+  : `Standard interpretation text generated from the calculated chart.${r.note?" "+esc(r.note):""}`;
+const readingText = r => r.summary+"\n\n"+r.sections.map(s=>s.title.toUpperCase()+"\n"+s.body.replace(/\*\*/g,"")).join("\n\n");
+async function loadReading(req){
+  try{
+    const r = await fetch("/api/interpret",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(req)});
+    const d = await r.json(); if(!r.ok) throw new Error((d.error&&d.error.message)||"failed");
+    const R = d.reading;
+    $("#readingBody").className="";
+    $("#readingBody").innerHTML = `<p style="font:500 17px/1.45 var(--serif)">${md(R.summary).replace(/<\/?p>/g,"")}</p>`
+      + R.sections.map(s=>`<h3>${esc(s.title)}</h3>${md(s.body)}`).join("")
+      + `<div class="src">${srcLine(R)}</div><div class="hint">${esc(d.disclaimer)}</div>`;
+    const b=$("#copyReading"); b.disabled=false; b.onclick=()=>copy(readingText(R));
+  }catch(err){ $("#readingBody").innerHTML=`<div class="notice err">Interpretation unavailable: ${esc(err.message)}</div>`; }
+}
+async function loadMatch(req){
+  const btn=$("#matchGo"); btn.disabled=true; btn.textContent="Scanning birth dates…";
+  $("#matchBody").innerHTML='<div class="hint" style="margin-top:10px">Comparing your chart with every birth date in the range…</div>';
+  try{
+    const body={...req, years_before:+$("#yb").value||0, years_after:+$("#ya").value||0};
+    const r = await fetch("/api/match",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d = await r.json(); if(!r.ok) throw new Error((d.error&&d.error.message)||(d.detail&&JSON.stringify(d.detail))||"failed");
+    const P=d.profile;
+    const signs = d.sun_sign_ranking.map((s,i)=>`<div><b>${SIGNG[["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"].indexOf(s.sign)]} ${esc(s.sign)}</b> <span class="hint">#${i+1}</span><div class="hint">${esc(s.style)}</div><div class="bar"><i style="width:${s.score}%"></i></div></div>`).join("");
+    const rows = d.windows.map((w,i)=>`<tr><td>#${i+1}</td><td>${esc(w.from)} → ${esc(w.to)}</td><td>${esc(w.best_dates.join(", "))}</td><td>${esc(w.sun_signs.join(" / "))}</td><td>${esc(w.venus_signs.join("/"))} · ${esc(w.mars_signs.join("/"))}</td><td class="num">${w.match_strength}</td></tr>`).join("");
+    const copyTxt = readingText(P)+"\n\nBEST BIRTH-DATE WINDOWS\n"+d.windows.map((w,i)=>`#${i+1} ${w.from} to ${w.to} (${w.sun_signs.join("/")} Sun) - strength ${w.match_strength}/100; best dates ${w.best_dates.join(", ")}`).join("\n");
+    $("#matchBody").innerHTML = `<div class="reading" style="margin-top:14px"><p style="font:500 17px/1.45 var(--serif)">${md(P.summary).replace(/<\/?p>/g,"")}</p>
+      <h3>Compatibility by horoscope (Sun sign)</h3><div class="signs">${signs}</div>
+      <h3>Best partner birth-date windows</h3><div class="scroll"><table><tr><th></th><th>Born between</th><th>Best dates</th><th>Sun sign</th><th>Venus · Mars</th><th>Strength</th></tr>${rows}</table></div>
+      ${P.sections.map(s=>`<h3>${esc(s.title)}</h3>${md(s.body)}`).join("")}
+      <div class="btns" style="margin-top:8px"><button class="small" id="copyMatch">Copy match profile</button></div>
+      <div class="src">${srcLine(P)} Scanned ${d.search.days_scanned.toLocaleString()} birth dates (${esc(d.search.from)} to ${esc(d.search.to)}) at 12:00 UT; the partner's Moon depends on their birth time. Strength 100 = best date found in the range.</div>
+      <div class="hint">${esc(d.disclaimer)}</div></div>`;
+    $("#copyMatch").onclick=()=>copy(copyTxt);
+  }catch(err){ $("#matchBody").innerHTML=`<div class="notice err" style="margin-top:10px">Match search failed: ${esc(err.message)}</div>`; }
+  finally{ btn.disabled=false; btn.textContent="Find my best matches →"; }
+}
 // ---------- wheel (SVG). ASC on the left, longitude increasing counter-clockwise.
 function wheel(d){
   const S=560, c=S/2, R1=268, R2=232, R3=196, R4=120;
