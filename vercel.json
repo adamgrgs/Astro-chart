@@ -2,7 +2,7 @@
   "functions": {
     "api/index.py": {
       "includeFiles": "{astrocalc,ephe,data,web}/**",
-      "maxDuration": 30,
+      "maxDuration": 90,
       "memory": 1024
     }
   },

@@ -77,3 +77,45 @@ outside the library. Identical input on identical pinned versions gives byte-ide
 
 ## Supported range
 Gregorian years **1200–2999**, using the bundled `sepl/semo/seas` files `_12`, `_18` and `_24` (5.9 MB). Dates outside that range return `UNSUPPORTED_DATE`. Inside it, any file that turns out to be missing returns `MISSING_EPHEMERIS`. The engine checks the return flag of every `calc_ut` call and refuses the Swiss Ephemeris' silent fallback to the lower-precision Moshier model. To extend the range, add the matching `.se1` files from <https://github.com/aloistr/swisseph/tree/master/ephe> and edit `SUPPORTED_YEARS`.
+
+
+## Interpretation (`astrocalc/interpret.py`)
+
+1. **Facts** (deterministic): sign, house, retrograde for Sun–Pluto, Chiron, North Node, Lilith, ASC, MC and Fortune;
+   element/modality balance (Sun, Moon and ASC count 2, Mercury–Saturn count 1, Uranus–Pluto count 0.5); chart ruler
+   (modern rulers: Scorpio = Pluto, Aquarius = Uranus, Pisces = Neptune); sign clusters (3+ of Sun–Pluto in a sign);
+   house clusters (3+ in a house); planets in angular houses; the 8 tightest aspects among the main points, with
+   personal-planet aspects first. For unknown birth times, house and angle facts are omitted, and fast points that
+   change sign during the day are listed with both possible signs.
+2. **Template reading**: built from the fixed vocabulary in `meanings.py`, which is always available.
+3. **AI writer** (optional): the system prompt is in `interpret.SYSTEM_PROMPT`. Temperature is 0.4 and the output
+   is JSON. **Claim checker** (`validate_claims`): rejects any sign or house statement that disagrees with the chart,
+   any degree figure other than a real aspect orb, and any house, Ascendant or Midheaven mention when the birth time
+   is unknown. One retry is made with the corrections; after that the template is used.
+
+## Ideal match (`astrocalc/match.py`)
+
+- Candidates: every day from (birth year − N) Jan 1 to min(birth year + N Dec 31, today), computed at 12:00 UT
+  with the same zodiac and ayanamsa. Points used are Sun, Moon, Mercury, Venus, Mars, Jupiter and Saturn.
+- User points: Sun, Mercury, Venus, Mars, Jupiter, Saturn, plus the Moon (dropped if the time is unknown and the
+  day's Moon span is over 14°), plus the ASC when the birth time is known.
+- Contact score = pair weight × aspect quality × (1 − orb / max orb). Max orb is 6° for contacts involving
+  Sun, Moon or ASC and 4° otherwise. The partner's Moon gets an extra 6.5° of orb and is weighted × 0.6.
+
+| Pair | Weight | | Pair | Weight |
+|---|---|---|---|---|
+| Sun–Moon | 10 | | Sun/Moon/Venus–ASC | 6 |
+| Venus–Mars | 9 | | Mars–ASC, Sun–Mars, Moon–Mars, Mercury–Mercury | 4 |
+| Moon–Moon, Sun–Venus, Moon–Venus | 7 | | Jupiter–Sun/Moon/Venus | 4 |
+| Venus–Venus | 6 | | Saturn–Sun/Moon/Venus, Mars–Mars, Mercury–Sun/Moon/Venus | 3 |
+| Sun–Sun | 5 | | | |
+
+  Aspect quality: trine +1.0, sextile +0.7, conjunction +1.0 (+0.3 for Saturn or Mars–Mars), opposition +0.4
+  (−0.6 with Saturn), square −0.6 (−1.0 with Saturn).
+- **Windows**: runs of days in the top 10% by slow-planet score (all planets except the Moon), with gaps of ≤2
+  days merged. Ranked by peak score, with at most 2 windows per Sun sign. The "best dates" are the 3 days in a
+  window with the highest total score including the Moon.
+- **Match strength** = window peak ÷ best day in the scan × 100. **Sun-sign ranking** = average slow score of all
+  scanned days with that Sun sign, rescaled 0–100.
+- These weights are a conventional synastry heuristic. They are not empirically validated, and the UI shows a
+  disclaimer.

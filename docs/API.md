@@ -80,3 +80,20 @@ Errors come back as HTTP 4xx/5xx with this body: `{"error": {"code", "message", 
 - `GET /api/timezone?lat=30N04&lon=31E15`: IANA zone for coordinates.
 - `GET /api/meta`: options, defaults, versions, attribution.
 - `GET /api/health`: 200 when the ephemeris files are present, otherwise 503.
+
+
+## POST /api/interpret
+Body: the same as `/api/chart`, plus `ai` (bool, default true). Returns `facts`, `reading`
+{summary, sections[{title, body}], source: "ai"|"template", provider, model, guardrail, note}, `chart_summary`,
+`disclaimer`.
+
+## POST /api/match
+Body: the same as `/api/chart`, plus `years_before` (0–40, default 10), `years_after` (0–40, default 10), `top`
+(1–12, default 6) and `ai`. Returns:
+- `search`
+- `windows[]`: from, to, best_dates, peak_date, match_strength, top_percent_of_days, sun_signs, venus_signs,
+  mars_signs, mercury_signs, moon_signs_best_dates, reasons, cautions
+- `sun_sign_ranking[]`
+- `method`
+- `profile` (same shape as `reading`)
+- `disclaimer`
